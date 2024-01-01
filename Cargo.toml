@@ -1,0 +1,13 @@
+[package]
+name = "jgz-verktyg"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = { version = "0.4.31", default-features = false, features = ["clock", "serde"] }
+clap = { version = "4.4.12", features = ["derive"] }
+csv = "1.3.0"
+rust_xlsxwriter = "0.59.0"
+serde = { version = "1.0.193", features = ["derive"] }
