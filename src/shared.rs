@@ -43,7 +43,7 @@ pub struct Person {
     pub level9: String,
 }
 
-fn current_date() -> NaiveDate {
+pub fn current_date() -> NaiveDate {
     Local::now().naive_local().date()
 }
 

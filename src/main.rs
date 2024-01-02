@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+mod adresskoll;
 mod cmd;
 mod shared;
 
@@ -12,6 +13,12 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Kontrollera att brödernas adresser är korrekt
+    #[command(arg_required_else_help = true)]
+    Adresskoll {
+        /// CSV-fil med aktuella medlemsuppgifter
+        filename: String,
+    },
     /// Gör en lista över bröder med minnesvärda födelsedagar
     #[command(arg_required_else_help = true)]
     Gratulera {
@@ -24,6 +31,9 @@ enum Commands {
 
 fn main() {
     match Cli::parse().command {
+        Commands::Adresskoll { filename } => {
+            adresskoll::run(filename);
+        }
         Commands::Gratulera { filename, year } => {
             cmd::gratulera(filename, year);
         }

@@ -6,6 +6,12 @@ mycket arbete. Det här är verktyg för att försöka underlätta arbetsbördan
 som krävs är en kopia av medlemsregistret i CSV-format, något som av uppenbara
 skäl inte lagras här.
 
+## Adresskoll: Försök verifiera brödernas adressuppgifter
+
+Använder sig av [Ratsit](https://www.ratsit.se) för att försöka säkerställa att
+senast kända namn, adress, postnummer och ort stämmer överens med den senaste
+kända informationen från folkbokföringen.
+
 ## Gratulera: Underlag till födelsedagsgratulationer
 
 Generera en Excel-fil med information som kan användas för att gratulera bröder
