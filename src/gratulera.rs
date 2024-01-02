@@ -18,7 +18,7 @@ fn write_column_names(sheet: &mut Worksheet) {
 
     for (i, name) in column_names.into_iter().enumerate() {
         sheet
-            .write_with_format(0, i as u16, name, &header_format)
+            .write_with_format(0, u16::try_from(i).unwrap(), name, &header_format)
             .expect("Kunde inte skriva kolumnnamn");
     }
     sheet
