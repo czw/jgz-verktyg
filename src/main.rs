@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 mod adresskoll;
-mod cmd;
+mod gratulera;
 mod shared;
 
 #[derive(Debug, Parser)]
@@ -35,7 +35,7 @@ fn main() {
             adresskoll::run(filename);
         }
         Commands::Gratulera { filename, year } => {
-            cmd::gratulera(filename, year);
+            gratulera::run(filename, year);
         }
     }
 }
