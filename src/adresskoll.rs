@@ -20,6 +20,26 @@ fn build_ratsit_json(who: &str, age: u32) -> serde_json::Value {
     })
 }
 
+fn check_for_new_address(person: &Person, data: &serde_json::Value) -> Option<Result<(), String>> {
+    if data["person"]["hits"].as_array()?.len() == 1 {
+        let info = &data["person"]["hits"][0];
+        return Some(Err(format!(
+            "{}: Eventuellt ny adress - {}, {}",
+            person.number, info["streetAddress"], info["city"]
+        )));
+    }
+    None
+}
+
+fn is_deceased(url: &str) -> Result<bool, String> {
+    let response = match ureq::get(url).call() {
+        Ok(response) => Ok(response),
+        Err(_) => Err(format!("Problem med att hämta livsstatus från {url}")),
+    }?;
+    let html: String = response.into_string().unwrap();
+    Ok(html.contains("registrerades som avliden"))
+}
+
 fn query_ratsit(who: &str, age: u32) -> serde_json::Value {
     ureq::post("https://www.ratsit.se/api/search/combined")
         .send_json(build_ratsit_json(who, age))
@@ -45,11 +65,15 @@ fn verify_using_ratsit(person: &Person) -> Result<(), String> {
         + &person.city;
     address = address.replace('\n', " ");
 
-    // Do a search with all of the known information. If we only get a single
+    // Do a search with all the known information. If we only get a single
     // hit, we have found our man.
     let name_and_address = name.clone() + " " + &address;
     let data = query_ratsit(&name_and_address, age);
-    if data["person"]["hits"].as_array().unwrap().len() == 1 {
+    let hits = data["person"]["hits"].as_array().unwrap();
+    if hits.len() == 1 {
+        if is_deceased(hits[0]["personUrl"].as_str().unwrap())? {
+            return Err(format!("{}: Avliden", person.number));
+        }
         return Ok(());
     }
 
@@ -57,22 +81,14 @@ fn verify_using_ratsit(person: &Person) -> Result<(), String> {
     // living in the same town.
     let name_and_city = name.clone() + " " + &person.city;
     let data = query_ratsit(&name_and_city, age);
-    if data["person"]["hits"].as_array().unwrap().len() == 1 {
-        let info = &data["person"]["hits"][0];
-        return Err(format!(
-            "{}: Eventuellt ny adress - {}, {}",
-            person.number, info["streetAddress"], info["city"]
-        ));
+    if let Some(value) = check_for_new_address(person, &data) {
+        return value;
     }
 
     // Still no match. Let's widen the search: only use the age and no address.
     let data = query_ratsit(&name, age);
-    if data["person"]["hits"].as_array().unwrap().len() == 1 {
-        let info = &data["person"]["hits"][0];
-        return Err(format!(
-            "{}: Eventuellt ny adress - {}, {}",
-            person.number, info["streetAddress"], info["city"]
-        ));
+    if let Some(value) = check_for_new_address(person, &data) {
+        return value;
     }
 
     // Well, I can't find this person.
@@ -103,8 +119,8 @@ fn verify(person: &Person) -> Result<(), String> {
 }
 
 pub fn run(filename: String) {
-    // Just a quick design note here: this could could easily have been made to
-    // run in parallel and async, but... We don't really want to strain the
+    // Just a quick design note here: this could easily have been made to run
+    // in parallel and async, but... We don't really want to strain the
     // services we use.
     let people = read_csv(filename);
     let pb = ProgressBar::new(people.len() as u64);
