@@ -1,0 +1,130 @@
+body {
+  background-color: white !important;
+  font-family: "New York", Georgia, Baskerville, Palantino, "Times New Roman", Times, serif;
+  margin: 0;
+}
+
+.people {
+  display: grid;
+  grid-template-columns: 28mm 67mm 30mm 113mm;
+}
+
+/** Page header and footer **************************************************/
+.header {
+  grid-column: 1 / -1;
+  padding: 2px 0px;
+  border-bottom: 2px solid #800;
+  margin-bottom: 4px;
+  font-size: 12px;
+  display: table;
+  width: 100%;
+}
+
+.header .left {
+  display: table-cell;
+  padding-left: 15px;
+  text-align: left;
+}
+
+.header .right {
+  display: table-cell;
+  padding-right: 15px;
+  text-align: right;
+}
+
+.footer {
+  font-size: 12px;
+  grid-column: 1 / -1;
+  margin-top: 1px;
+  break-after: page;
+  text-align: center;
+}
+
+/** Shaded background for every other row ***********************************/
+.shaded-row {
+  background: #f6f6f6;
+}
+
+.vcenter {
+  height: 32mm; /* Exempel: Sätt till den höjd du behöver */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.person-info-2 {
+  align-items: flex-end;
+  text-align: right;
+  padding-right: 10px;
+}
+
+.person-levels {
+  border-left: 0.2mm solid #333333;
+}
+
+/** Image and slightly rounded border ***************************************/
+.imgcell {
+  width: 20mm;
+  height: 32mm;
+  padding: 0 4mm;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.imgcell img {
+  width: 20mm;
+  height: 28mm;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 2mm;
+  border: 0.2mm solid #333333;
+}
+
+/** Page header and footer **************************************************/
+/** Page header and footer **************************************************/
+
+
+div p {
+  font-size: 14px;
+  margin: 0;
+  padding: 3px 0px;
+}
+
+
+
+
+
+
+
+
+
+     .level_date {
+       border: 1px solid black;
+       display: inline-block;
+       padding: 2px;
+       text-align: center;
+       width: 6.6em;
+     }
+
+    .level_label {
+       display: inline-block;
+       width: 2em;
+       padding: 0 2px;
+       text-align: right;
+       font-weight: bold;
+     }
+
+
+
+
+
+
+
+/*
+p {
+  font-size: 9px;
+  margin: 0;
+  padding: 0;
+}
+*/

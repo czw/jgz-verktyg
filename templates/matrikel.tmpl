@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Jämtlands Gilles medlemsmatrikel</title>
+    <link rel="stylesheet" href="templates/matrikel.css">
+    <style type="text/css">
+    </style>
+  </head>
+  <body>
+    <div class="people">
+      {% for people in people_per_page %}
+        <div class="header">
+          <p class="left">Jämtlands Gille, JG</p>
+          <p class="right">Medlemsmatrikel per 1:a januari {{ year }}</p>
+        </div>
+        {% for person in people %}
+          <div class="imgcell {{ loop.cycle('normal', 'shaded-row') }}">
+            <img src="{{ images[person.number] or "templates/default-picture.jpg" }}"/>
+          </div>
+          <div class="vcenter person-info-1 {{ loop.cycle('normal', 'shaded-row') }}">
+            <p><b>{{ person.last_name}}</b>, {{ person.given_name }}</p>
+            <p>{{ person.address }}</p>
+            <p>{{ person.zip_code }} {{ person.city }}</p>
+            <p>{{ person.email }}&nbsp;</p>
+          </div>
+          <div class="vcenter person-info-2 {{ loop.cycle('normal', 'shaded-row') }}">
+            <p>{{ person.number }}</p>
+            <p>{{ person.born }}</p>
+            <p>&nbsp;{{ person.phone1 }}</p>
+            <p>&nbsp;{{ person.phone2 }}</p>
+          </div>
+          <div class="vcenter person-levels {{ loop.cycle('normal', 'shaded-row') }}">
+            <p>
+              <span class="level_label">I.</span>
+              <span class="level_date">&nbsp;{{ person.level1 }}&nbsp;</span>
+              <span class="level_label">IV.</span>
+              <span class="level_date">&nbsp;{{ person.level4 }}&nbsp;</span>
+              <span class="level_label">VII.</span>
+              <span class="level_date">&nbsp;{{ person.level7 }}&nbsp;</span>
+            </p>
+            <p>
+              <span class="level_label">II.</span>
+              <span class="level_date">&nbsp;{{ person.level2 }}&nbsp;</span>
+              <span class="level_label">V.</span>
+              <span class="level_date">&nbsp;{{ person.level5 }}&nbsp;</span>
+              <span class="level_label">VIII.</span>
+              <span class="level_date">&nbsp;{{ person.level8 }}&nbsp;</span>
+            </p>
+            <p>
+              <span class="level_label">III.</span>
+              <span class="level_date">&nbsp;{{ person.level3 }}&nbsp;</span>
+              <span class="level_label">VI.</span>
+              <span class="level_date">&nbsp;{{ person.level6 }}&nbsp;</span>
+              <span class="level_label">H.</span>
+              <span class="level_date">&nbsp;{{ person.level9 }}&nbsp;</span>
+            </p>
+          </div>
+        {% endfor %}
+        <div class="footer">
+          Sida {{ loop.index }} av {{ loop.length }}
+        </div>
+      {% endfor %}
+    </div>
+  </body>
+</html>
