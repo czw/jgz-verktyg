@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 mod adresskoll;
 mod gratulera;
 mod matrikel;
+mod matrikelstatistik;
 mod shared;
 
 #[derive(Debug, Parser)]
@@ -36,6 +37,12 @@ enum Commands {
         /// Vilket år som matrikeln ska genereras för om ej nuvarande år
         year: Option<i32>,
     },
+    /// Generera statistik om medlemmar för tryck i matrikeln
+    #[command(arg_required_else_help = true)]
+    Matrikelstatistik {
+        /// CSV-fil med aktuella medlemsuppgifter
+        filename: String,
+    },
 }
 
 fn main() {
@@ -48,6 +55,9 @@ fn main() {
         }
         Commands::Matrikel { filename, year } => {
             matrikel::run(filename, year).unwrap();
+        }
+        Commands::Matrikelstatistik { filename } => {
+            matrikelstatistik::run(filename);
         }
     }
 }
