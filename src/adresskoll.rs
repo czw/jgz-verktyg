@@ -1,4 +1,4 @@
-use crate::shared::{current_date, read_csv, Person};
+use crate::shared::{Person, current_date, read_csv};
 use indicatif::{ProgressBar, ProgressStyle};
 
 fn build_ratsit_json(who: &str, age: u32) -> serde_json::Value {
@@ -71,7 +71,11 @@ fn verify_using_ratsit(person: &Person) -> Result<(), String> {
     let data = query_ratsit(&name_and_address, age);
     let hits = data["person"]["hits"].as_array().unwrap();
     if hits.len() == 1 {
-        if is_deceased(hits[0]["personUrl"].as_str().unwrap())? {
+        let url = hits[0]["personUrl"].as_str().unwrap();
+        if url.is_empty() {
+            return Err(format!("{}: Kan inte kolla livsstatus", person.number));
+        }
+        if is_deceased(url)? {
             return Err(format!("{}: Avliden", person.number));
         }
         return Ok(());
@@ -122,7 +126,8 @@ pub fn run(filename: String) {
     // Just a quick design note here: this could easily have been made to run
     // in parallel and async, but... We don't really want to strain the
     // services we use.
-    let people = read_csv(filename);
+    let mut people = read_csv(filename);
+    people.sort_unstable_by_key(|p| p.number);
     let pb = ProgressBar::new(people.len() as u64);
     pb.set_style(ProgressStyle::with_template("{msg} {bar:56.cyan/blue} ({eta})").unwrap());
     pb.set_message("Verifierar");
@@ -133,6 +138,7 @@ pub fn run(filename: String) {
         if let Err(err) = verify(&person) {
             messages.push(err);
         }
+        std::thread::sleep(std::time::Duration::from_secs(6));
     }
     pb.finish();
 
