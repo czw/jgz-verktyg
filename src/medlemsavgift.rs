@@ -21,7 +21,7 @@ const NORMAL_YEARLY_FEE: i32 = 350;
 const REDUCED_YEARLY_FEE: i32 = 100;
 const A4_PAPER_WIDTH_INCHES: f64 = 8.27;
 const A4_PAPER_HEIGHT_INCHES: f64 = 11.69;
-const MAIL_BODY: &str = r#"Bäste broder!
+const MAIL_BODY: &str = r"Bäste broder!
 
 Det är dags att betala din medlemsavgift i Jämtlands Gille. Vi hoppas att du
 betalar skyndsamt och att vi ses under våra ordinarie eller extra möten.
@@ -29,8 +29,8 @@ betalar skyndsamt och att vi ses under våra ordinarie eller extra möten.
 Nästa extramöte är den 21:a augusti där vi har en pubkväll där respektive är
 inbjudna, och med möjlighet att ballotera in nya bröder. Nästa ordinarie möte
 är den 19:e september. Mer information finns på vår hemsida
-https://www.jgz.se där exakta klockslag också finns."#;
-const WAIT_FOR_LOGO_JS: &str = r#"
+https://www.jgz.se där exakta klockslag också finns.";
+const WAIT_FOR_LOGO_JS: &str = r"
     new Promise((resolve) => {
         const img = document.querySelector('.logo-container img');
         if (!img || img.complete) {
@@ -40,7 +40,7 @@ const WAIT_FOR_LOGO_JS: &str = r#"
         img.addEventListener('load', () => resolve(true), { once: true });
         img.addEventListener('error', () => resolve(true), { once: true });
     });
-"#;
+";
 
 struct Mailer {
     from: Mailbox,
@@ -284,9 +284,8 @@ fn send_invoice(
         sent_file.flush()?;
     }
 
-    let elapsed = started.elapsed();
-    if elapsed < mail_interval {
-        std::thread::sleep(mail_interval - elapsed);
+    if let Some(remaining) = mail_interval.checked_sub(started.elapsed()) {
+        std::thread::sleep(remaining);
     }
 
     progress.inc(1);
@@ -314,7 +313,7 @@ pub fn run(filename: impl AsRef<Path>) -> Result<()> {
     let progress = ProgressBar::new(mailing_info.len().try_into()?);
     progress.set_style(
         ProgressStyle::with_template("{bar:56.cyan/blue} {eta} {msg}")
-            .expect("Ogiltig progressbar-mall"),
+            .context("Ogiltig progressbar-mall")?,
     );
 
     for info in mailing_info {

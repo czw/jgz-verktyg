@@ -24,22 +24,27 @@ fn get_image_map() -> Result<HashMap<i16, String>> {
 
     let mut map = HashMap::new();
     for filename in filenames {
-        match filename.split('_').collect::<Vec<_>>().as_slice() {
-            [_, number, rest] if rest.contains('-') => match number.parse::<i16>() {
-                Ok(id) => {
-                    map.insert(id, filename);
-                }
-                Err(err) => eprintln!("Warning: Failed to parse id from {} ({err})", filename),
-            },
-            _ => eprintln!("Warning: Expected two underscores in filename: {filename}"),
+        match member_number_from_image(&filename) {
+            Some(id) => {
+                map.insert(id, filename);
+            }
+            None => eprintln!("Varning: Kunde inte läsa medlemsnummer ur {filename}"),
         }
     }
     Ok(map)
 }
 
+fn member_number_from_image(filename: &str) -> Option<i16> {
+    let mut parts = filename.split('_');
+    let _prefix = parts.next()?;
+    let number = parts.next()?.parse().ok()?;
+    let rest = parts.next()?;
+    rest.contains('-').then_some(number)
+}
+
 fn get_sorted_member_list(filename: impl AsRef<Path>) -> Result<Vec<shared::Person>> {
     let mut people = shared::read_csv(filename)?;
-    people.sort_by(|a, b| {
+    people.sort_unstable_by(|a, b| {
         a.last_name
             .cmp(&b.last_name)
             .then_with(|| a.given_name.cmp(&b.given_name))
@@ -57,4 +62,22 @@ pub fn run(filename: impl AsRef<Path>, year: Option<i32>) -> Result<()> {
     let tmpl = shared::ENV.get_template("matrikel.tmpl")?;
     println!("{}", tmpl.render(ctx)?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_member_number_from_portrait_filename() {
+        assert_eq!(
+            member_number_from_image("K1b/K1b_1754_2025-11-22.jpg"),
+            Some(1754)
+        );
+        assert_eq!(
+            member_number_from_image("K1b/matrikel/K1b_1810_2025-12-13.png"),
+            Some(1810)
+        );
+        assert_eq!(member_number_from_image("portrait.jpg"), None);
+    }
 }
