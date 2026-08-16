@@ -1,5 +1,5 @@
 use crate::shared::{self, MemberFeeLevel, Person};
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Result};
 use headless_chrome::{Browser, LaunchOptions, types::PrintToPdfOptions};
 use indicatif::{ProgressBar, ProgressStyle};
 use lettre::{
@@ -119,16 +119,14 @@ where
 }
 
 impl MailingInfo {
-    fn try_new(person: Person) -> Result<Self> {
+    fn try_new(person: Person) -> Result<Option<Self>> {
         let name = format_name(&person.given_name, &person.last_name);
         let email_addresses = parse_email_addresses(&name, &person.email)?;
 
         let payment_reduced = person.member_fee_level == MemberFeeLevel::Reduced;
-        let years_to_pay =
-            shared::current_year() - person.last_member_fee_paid.last_paid_year as i32;
-        if years_to_pay == 0 {
-            return Err(Error::msg("Redan betalt"));
-        }
+        let Some(years_to_pay) = unpaid_years(person.last_member_fee_paid.last_paid_year) else {
+            return Ok(None);
+        };
 
         let yearly_fee = if payment_reduced {
             REDUCED_YEARLY_FEE
@@ -136,7 +134,7 @@ impl MailingInfo {
             NORMAL_YEARLY_FEE
         };
 
-        Ok(Self {
+        Ok(Some(Self {
             address: person.address,
             city: person.city.to_uppercase(),
             email: person.email,
@@ -149,8 +147,13 @@ impl MailingInfo {
             phone1: person.phone1,
             phone2: person.phone2,
             zip_code: person.zip_code,
-        })
+        }))
     }
+}
+
+fn unpaid_years(last_paid_year: u16) -> Option<i32> {
+    let years = shared::current_year() - i32::from(last_paid_year);
+    (years > 0).then_some(years)
 }
 
 fn format_name(given_name: &str, last_name: &str) -> String {
@@ -193,7 +196,7 @@ fn build_mailing_info(filename: impl AsRef<Path>) -> Result<Vec<MailingInfo>> {
     shared::read_csv(filename)?
         .into_iter()
         .filter(|p| !p.email.is_empty() && p.member_fee_level != MemberFeeLevel::Free)
-        .map(MailingInfo::try_new)
+        .filter_map(|person| MailingInfo::try_new(person).transpose())
         .collect()
 }
 
@@ -332,6 +335,14 @@ pub fn run(filename: impl AsRef<Path>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unpaid_years_skips_current_and_future_payments() {
+        let current = shared::current_year();
+        assert_eq!(unpaid_years(u16::try_from(current).unwrap()), None);
+        assert_eq!(unpaid_years(u16::try_from(current + 1).unwrap()), None);
+        assert_eq!(unpaid_years(u16::try_from(current - 2).unwrap()), Some(2));
+    }
 
     #[test]
     fn formats_names_in_title_case() {
