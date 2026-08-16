@@ -1,7 +1,8 @@
+use crate::shared::{self, Person};
+use anyhow::Result;
 use chrono::{Datelike, Local, NaiveDate};
 use std::collections::BTreeMap;
-
-use crate::shared::{self, Person};
+use std::path::Path;
 
 fn print_age_averages(people: &Vec<Person>) {
     let today = Local::now().naive_local().date();
@@ -191,8 +192,8 @@ fn print_total_at_levels(people: &Vec<Person>) {
     );
 }
 
-pub fn run(filename: String) {
-    let people = shared::read_csv(filename);
+pub fn run(filename: impl AsRef<Path>) -> Result<()> {
+    let people = shared::read_csv(filename)?;
     println!("Totalt antal medlemmar: {}", people.len());
     print_new_members_last_year(&people);
     print_age_averages(&people);
@@ -202,4 +203,5 @@ pub fn run(filename: String) {
     print_born_each_month(&people);
     print_most_common_birthdays(&people);
     print_city_distribution(&people);
+    Ok(())
 }

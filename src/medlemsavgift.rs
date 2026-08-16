@@ -12,6 +12,7 @@ use std::{
     collections::HashSet,
     fs::{File, OpenOptions, read_to_string, remove_file, write},
     io::{self, Write},
+    path::Path,
     time::{Duration, Instant},
 };
 
@@ -188,8 +189,8 @@ fn parse_email_addresses(name: &str, email: &str) -> Result<Vec<Mailbox>> {
         .collect()
 }
 
-fn build_mailing_info(filename: &str) -> Result<Vec<MailingInfo>> {
-    shared::read_csv(filename.to_string())
+fn build_mailing_info(filename: impl AsRef<Path>) -> Result<Vec<MailingInfo>> {
+    shared::read_csv(filename)?
         .into_iter()
         .filter(|p| !p.email.is_empty() && p.member_fee_level != MemberFeeLevel::Free)
         .map(MailingInfo::try_new)
@@ -289,7 +290,7 @@ fn send_invoice(
     Ok(())
 }
 
-pub fn run(filename: String) -> Result<()> {
+pub fn run(filename: impl AsRef<Path>) -> Result<()> {
     let sent_numbers = read_sent_numbers()?;
     let mailer = build_mailer()?;
     let mail_interval = Duration::from_secs(get_from_env("SMTP_SEND_INTERVAL")?.parse()?);

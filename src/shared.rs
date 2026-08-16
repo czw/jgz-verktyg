@@ -1,7 +1,9 @@
+use anyhow::{Context, Result};
 use chrono::{Datelike, Local, NaiveDate};
 use minijinja::{Environment, path_loader};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::LazyLock;
 
 pub static ENV: LazyLock<Environment<'static>> = LazyLock::new(|| {
@@ -23,15 +25,13 @@ impl<'de> Deserialize<'de> for MemberFeeLevel {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        if s.is_empty() {
-            Ok(MemberFeeLevel::Normal)
-        } else if s.starts_with("Fri") {
-            Ok(MemberFeeLevel::Free)
+        Ok(if s.starts_with("Fri") {
+            Self::Free
         } else if s.starts_with("Reducerad") {
-            Ok(MemberFeeLevel::Reduced)
+            Self::Reduced
         } else {
-            Ok(MemberFeeLevel::Normal)
-        }
+            Self::Normal
+        })
     }
 }
 
@@ -49,18 +49,19 @@ impl<'de> Deserialize<'de> for PaymentHistory {
         let map = BTreeMap::<String, serde_json::Value>::deserialize(deserializer)?;
         let mut last_year = LAST_PAYMENT_IF_EMPTY;
         for (key, value) in map {
-            if key.starts_with("Medlavg ") {
-                let is_filled = match value {
-                    serde_json::Value::String(s) => !s.is_empty(),
-                    serde_json::Value::Null => false,
-                    _ => true, // Numbers, etc.
-                };
-                if is_filled
-                    && let Ok(year) = key["Medlavg ".len()..].parse::<u16>()
-                    && year > last_year
-                {
-                    last_year = year;
-                }
+            let Some(year_str) = key.strip_prefix("Medlavg ") else {
+                continue;
+            };
+            let is_filled = match value {
+                serde_json::Value::String(s) => !s.is_empty(),
+                serde_json::Value::Null => false,
+                _ => true, // Numbers, etc.
+            };
+            if is_filled
+                && let Ok(year) = year_str.parse::<u16>()
+                && year > last_year
+            {
+                last_year = year;
             }
         }
         Ok(PaymentHistory {
@@ -131,14 +132,14 @@ where
     Ok(s.trim().to_string())
 }
 
-pub fn read_csv(filename: String) -> Vec<Person> {
-    let mut people = Vec::new();
-    let mut reader = csv::Reader::from_path(filename).expect("Kunde inte öppna medlemsregistret");
-    for result in reader.deserialize() {
-        let person: Person = result.expect("Något gick fel vid läsning av medlemsregistret");
-        people.push(person);
-    }
-    people
+pub fn read_csv(filename: impl AsRef<Path>) -> Result<Vec<Person>> {
+    let filename = filename.as_ref();
+    let mut reader = csv::Reader::from_path(filename)
+        .with_context(|| format!("Kunde inte öppna medlemsregistret {}", filename.display()))?;
+    reader
+        .deserialize()
+        .collect::<Result<Vec<Person>, _>>()
+        .context("Något gick fel vid läsning av medlemsregistret")
 }
 
 #[cfg(test)]
