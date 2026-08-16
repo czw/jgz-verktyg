@@ -1,10 +1,10 @@
 use chrono::{Datelike, Local, NaiveDate};
 use minijinja::{Environment, path_loader};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
+use std::sync::LazyLock;
 
-pub static ENV: Lazy<Environment<'static>> = Lazy::new(|| {
+pub static ENV: LazyLock<Environment<'static>> = LazyLock::new(|| {
     let mut env = Environment::new();
     env.set_loader(path_loader("templates"));
     env

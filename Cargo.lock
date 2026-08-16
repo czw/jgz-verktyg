@@ -851,7 +851,6 @@ dependencies = [
  "indicatif",
  "lettre",
  "minijinja",
- "once_cell",
  "rust_xlsxwriter",
  "serde",
  "serde_json",
