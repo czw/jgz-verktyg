@@ -1,5 +1,7 @@
+/K1b
 /target
 .DS_Store
+.env
 .idea
 *.csv
 *.xlsx

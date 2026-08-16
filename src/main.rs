@@ -3,6 +3,7 @@ mod adresskoll;
 mod gratulera;
 mod matrikel;
 mod matrikelstatistik;
+mod medlemsavgift;
 mod shared;
 
 #[derive(Debug, Parser)]
@@ -43,9 +44,16 @@ enum Commands {
         /// CSV-fil med aktuella medlemsuppgifter
         filename: String,
     },
+    /// Generera fakturor för medlemsavgift
+    #[command(arg_required_else_help = true)]
+    Medlemsavgift {
+        /// CSV-fil med aktuella medlemsuppgifter
+        filename: String,
+    },
 }
 
 fn main() {
+    dotenvy::dotenv().expect("Fel vid läsning av .env-fil");
     match Cli::parse().command {
         Commands::Adresskoll { filename } => {
             adresskoll::run(filename);
@@ -58,6 +66,9 @@ fn main() {
         }
         Commands::Matrikelstatistik { filename } => {
             matrikelstatistik::run(filename);
+        }
+        Commands::Medlemsavgift { filename } => {
+            medlemsavgift::run(filename).unwrap();
         }
     }
 }

@@ -1,14 +1,6 @@
-use std::collections::HashMap;
-
 use crate::shared;
-use minijinja::{Environment, context, path_loader};
-use once_cell::sync::Lazy;
-
-static ENV: Lazy<Environment<'static>> = Lazy::new(|| {
-    let mut env = Environment::new();
-    env.set_loader(path_loader("templates"));
-    env
-});
+use minijinja::context;
+use std::collections::HashMap;
 
 fn get_image_map() -> Result<HashMap<i16, String>, Box<dyn std::error::Error>> {
     // Build a list of filenames that might be uses as portrait images. We add
@@ -61,7 +53,7 @@ pub fn run(filename: String, year: Option<i32>) -> Result<(), Box<dyn std::error
     let year = year.unwrap_or(shared::current_year());
 
     let ctx = context!(images => images, people_per_page => people_per_page, year => year);
-    let tmpl = ENV.get_template("matrikel.tmpl")?;
+    let tmpl = shared::ENV.get_template("matrikel.tmpl")?;
     println!("{}", tmpl.render(ctx)?);
     Ok(())
 }
