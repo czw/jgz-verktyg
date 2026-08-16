@@ -34,13 +34,12 @@ fn is_milestone_age(age: i32) -> bool {
 
 fn write_person(sheet: &mut Worksheet, person: &shared::Person, row: u32, year: i32) -> Result<()> {
     let age = year - person.born.year();
-    let name = format!("{} {}", person.given_name, person.last_name);
 
     sheet.write(row, 0, person.number)?;
     sheet.write(row, 1, person.born.format("%m-%d").to_string())?;
     sheet.write(row, 2, age)?;
     sheet.write(row, 3, person.born.to_string())?;
-    sheet.write(row, 4, name)?;
+    sheet.write(row, 4, person.full_name())?;
     sheet.write(row, 5, person.address.as_str())?;
     sheet.write(row, 6, person.zip_code.as_str())?;
     sheet.write(row, 7, person.city.as_str())?;

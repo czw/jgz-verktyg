@@ -116,6 +116,30 @@ pub struct Person {
     pub last_member_fee_paid: PaymentHistory,
 }
 
+impl Person {
+    pub fn full_name(&self) -> String {
+        format!("{} {}", self.given_name, self.last_name)
+    }
+
+    pub fn degree_dates(&self) -> [&str; 9] {
+        [
+            &self.level1,
+            &self.level2,
+            &self.level3,
+            &self.level4,
+            &self.level5,
+            &self.level6,
+            &self.level7,
+            &self.level8,
+            &self.level9,
+        ]
+    }
+
+    pub fn entered_on(&self) -> Option<NaiveDate> {
+        NaiveDate::parse_from_str(&self.level1, "%Y-%m-%d").ok()
+    }
+}
+
 pub fn current_date() -> NaiveDate {
     Local::now().naive_local().date()
 }
@@ -162,6 +186,11 @@ N:r,Efternamn,Förnamn,Adress,Postadress,Postnr,Född,Epost,Tfn,Mobil,I. graden,
         assert_eq!(people[0].member_fee_level, MemberFeeLevel::Free);
         assert_eq!(people[0].last_member_fee_paid.last_paid_year, 2025);
         assert_eq!(people[0].email, "sven@example.com");
+        assert_eq!(people[0].full_name(), "Sven Svensson");
+        assert_eq!(
+            people[0].entered_on(),
+            Some(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap())
+        );
 
         // Person 2: Reducerad 2025, paid 2024 and 2026. Highest year should be 2026.
         assert_eq!(people[1].member_fee_level, MemberFeeLevel::Reduced);

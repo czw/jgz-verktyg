@@ -69,7 +69,8 @@ fn query_ratsit(who: &str, age: u32) -> Result<serde_json::Value> {
 }
 
 fn search_name(person: &Person) -> String {
-    format!("{} {}", person.given_name, person.last_name)
+    person
+        .full_name()
         .replace("d.y.", "")
         .replace("MACHNOW", "MACKNOW")
 }
@@ -116,10 +117,9 @@ fn verify_using_ratsit(person: &Person, postal_digits: &str) -> Result<()> {
     }
 
     bail!(
-        "{}: Hittar inte {} {} i Ratsit",
+        "{}: Hittar inte {} i Ratsit",
         person.number,
-        person.given_name,
-        person.last_name
+        person.full_name()
     );
 }
 
