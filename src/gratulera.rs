@@ -5,7 +5,6 @@ use rust_xlsxwriter::{Format, Workbook, Worksheet};
 use std::path::Path;
 
 fn write_column_names(sheet: &mut Worksheet) -> Result<()> {
-    // Write the top row containing column names
     let column_names = [
         "Nr",
         "Dag-Månad",
@@ -29,57 +28,42 @@ fn write_column_names(sheet: &mut Worksheet) -> Result<()> {
     Ok(())
 }
 
-fn write_person(sheet: &mut Worksheet, person: shared::Person, row: u32, year: i32) -> Result<()> {
+fn is_milestone_age(age: i32) -> bool {
+    age >= 50 && age % 5 == 0
+}
+
+fn write_person(sheet: &mut Worksheet, person: &shared::Person, row: u32, year: i32) -> Result<()> {
     let age = year - person.born.year();
-    let born_string = person.born.to_string();
-    let born_day_and_month = born_string.get(5..10).unwrap();
-    let name = person.given_name + " " + &person.last_name;
+    let name = format!("{} {}", person.given_name, person.last_name);
 
     sheet.write(row, 0, person.number)?;
-    sheet.write(row, 1, born_day_and_month)?;
+    sheet.write(row, 1, person.born.format("%m-%d").to_string())?;
     sheet.write(row, 2, age)?;
-    sheet.write(row, 3, born_string)?;
+    sheet.write(row, 3, person.born.to_string())?;
     sheet.write(row, 4, name)?;
-    sheet.write(row, 5, person.address)?;
-    sheet.write(row, 6, person.zip_code)?;
-    sheet.write(row, 7, person.city)?;
+    sheet.write(row, 5, person.address.as_str())?;
+    sheet.write(row, 6, person.zip_code.as_str())?;
+    sheet.write(row, 7, person.city.as_str())?;
     Ok(())
 }
 
 pub fn run(filename: impl AsRef<Path>, year: Option<i32>) -> Result<()> {
     let year = year.unwrap_or(shared::current_year());
 
-    // Eliminate everyone below 50 and with an age not divisible by 5
-    let mut eligible = Vec::new();
-    for person in shared::read_csv(filename)? {
-        let age = year - person.born.year();
-        if age >= 50 && (age % 5) == 0 {
-            eligible.push(person);
-        }
-    }
+    let mut eligible: Vec<_> = shared::read_csv(filename)?
+        .into_iter()
+        .filter(|person| is_milestone_age(year - person.born.year()))
+        .collect();
 
-    // Sort the list by month and day born
-    eligible.sort_unstable_by(|a, b| {
-        let a = a.born;
-        let b = b.born;
-        let order = a.month0().partial_cmp(&b.month0()).unwrap();
-        if order != std::cmp::Ordering::Equal {
-            return order;
-        }
-        a.day0().partial_cmp(&b.day0()).unwrap()
-    });
+    eligible.sort_unstable_by_key(|person| (person.born.month(), person.born.day()));
 
-    // Create the Excel file
     let mut workbook = Workbook::new();
     let sheet = workbook.add_worksheet();
     write_column_names(sheet)?;
-    let mut row = 1;
-    for person in eligible {
-        write_person(sheet, person, row, year)?;
-        row += 1;
+    for (offset, person) in eligible.iter().enumerate() {
+        write_person(sheet, person, u32::try_from(offset + 1)?, year)?;
     }
 
-    // Adjust the column sizes and save the file
     sheet.autofit();
     let filename = format!("Gratulera {year}.xlsx");
     workbook
@@ -87,4 +71,17 @@ pub fn run(filename: impl AsRef<Path>, year: Option<i32>) -> Result<()> {
         .context("Kunde inte skriva Excel-filen")?;
     println!("Skapade filen '{filename}'.");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn milestone_ages_start_at_fifty_and_step_by_five() {
+        assert!(is_milestone_age(50));
+        assert!(is_milestone_age(75));
+        assert!(!is_milestone_age(49));
+        assert!(!is_milestone_age(51));
+    }
 }
