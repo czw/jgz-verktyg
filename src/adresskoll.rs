@@ -1,7 +1,9 @@
 use crate::shared::{Person, current_date, read_csv};
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::Path;
+use std::thread;
+use std::time::Duration;
 
 fn build_ratsit_json(who: &str, age: u32) -> serde_json::Value {
     ureq::json!({
@@ -22,17 +24,31 @@ fn build_ratsit_json(who: &str, age: u32) -> serde_json::Value {
     })
 }
 
-fn check_for_new_address(person: &Person, data: &serde_json::Value) -> Option<Result<()>> {
-    if data["person"]["hits"].as_array()?.len() == 1 {
-        let info = &data["person"]["hits"][0];
-        return Some(Err(anyhow!(
-            "{}: Eventuellt ny adress - {}, {}",
-            person.number,
-            info["streetAddress"],
-            info["city"]
-        )));
+/// Expected format: `SE-123 45`. Returns the five digits Ratsit searches for.
+fn swedish_postal_digits(zip: &str) -> Option<String> {
+    let digits = zip.strip_prefix("SE-")?;
+    let (area, suffix) = digits.split_once(' ')?;
+    if area.len() == 3
+        && suffix.len() == 2
+        && area.bytes().all(|b| b.is_ascii_digit())
+        && suffix.bytes().all(|b| b.is_ascii_digit())
+    {
+        Some(format!("{area}{suffix}"))
+    } else {
+        None
     }
-    None
+}
+
+fn suggested_address(person: &Person, data: &serde_json::Value) -> Option<String> {
+    let hits = data["person"]["hits"].as_array()?;
+    if hits.len() != 1 {
+        return None;
+    }
+    let info = &hits[0];
+    Some(format!(
+        "{}: Eventuellt ny adress - {}, {}",
+        person.number, info["streetAddress"], info["city"]
+    ))
 }
 
 fn is_deceased(url: &str) -> Result<bool> {
@@ -52,27 +68,25 @@ fn query_ratsit(who: &str, age: u32) -> Result<serde_json::Value> {
         .context("Kunde inte göra om data till JSON")
 }
 
-fn verify_using_ratsit(person: &Person) -> Result<()> {
-    // Find out how old this person is
-    let today = current_date();
-    let age = today.years_since(person.born).unwrap();
+fn search_name(person: &Person) -> String {
+    format!("{} {}", person.given_name, person.last_name)
+        .replace("d.y.", "")
+        .replace("MACHNOW", "MACKNOW")
+}
 
-    // Fixup the name and address to form solid search strings
-    let mut name = person.given_name.clone() + " " + &person.last_name;
-    name = name.replace("d.y.", "");
-    name = name.replace("MACHNOW", "MACKNOW");
-    let mut address = person.address.clone()
-        + " "
-        + person.zip_code.get(3..6).unwrap()
-        + person.zip_code.get(7..9).unwrap()
-        + " "
-        + &person.city;
-    address = address.replace('\n', " ");
+fn search_address(person: &Person, postal_digits: &str) -> String {
+    format!("{} {postal_digits} {}", person.address, person.city).replace('\n', " ")
+}
 
-    // Do a search with all the known information. If we only get a single
-    // hit, we have found our man.
-    let name_and_address = name.clone() + " " + &address;
-    let data = query_ratsit(&name_and_address, age)?;
+fn verify_using_ratsit(person: &Person, postal_digits: &str) -> Result<()> {
+    let age = current_date()
+        .years_since(person.born)
+        .with_context(|| format!("{}: Ogiltigt födelsedatum", person.number))?;
+
+    let name = search_name(person);
+    let address = search_address(person, postal_digits);
+
+    let data = query_ratsit(&format!("{name} {address}"), age)?;
     let hits = data["person"]["hits"]
         .as_array()
         .context("Ratsit-svaret saknar personträffar")?;
@@ -89,21 +103,18 @@ fn verify_using_ratsit(person: &Person) -> Result<()> {
         return Ok(());
     }
 
-    // So no exact match. Alright, check if there's someone of the same age
-    // living in the same town.
-    let name_and_city = name.clone() + " " + &person.city;
-    let data = query_ratsit(&name_and_city, age)?;
-    if let Some(value) = check_for_new_address(person, &data) {
-        return value;
+    // No exact match. Check if someone of the same age lives in the same town.
+    let data = query_ratsit(&format!("{name} {}", person.city), age)?;
+    if let Some(message) = suggested_address(person, &data) {
+        bail!("{message}");
     }
 
-    // Still no match. Let's widen the search: only use the age and no address.
+    // Still no match. Widen the search: name and age only.
     let data = query_ratsit(&name, age)?;
-    if let Some(value) = check_for_new_address(person, &data) {
-        return value;
+    if let Some(message) = suggested_address(person, &data) {
+        bail!("{message}");
     }
 
-    // Well, I can't find this person.
     bail!(
         "{}: Hittar inte {} {} i Ratsit",
         person.number,
@@ -113,31 +124,27 @@ fn verify_using_ratsit(person: &Person) -> Result<()> {
 }
 
 fn verify(person: &Person) -> Result<()> {
-    // Skip everyone not living in Sweden
-    if !person.zip_code.starts_with("SE-") {
+    let Some(postal_digits) = swedish_postal_digits(&person.zip_code) else {
+        if person.zip_code.starts_with("SE-") {
+            bail!(
+                "{}: Jag litar inte på postnumret {}",
+                person.number,
+                person.zip_code
+            );
+        }
         bail!(
             "{}: Inte bosatt i Sverige ({})",
             person.number,
             person.zip_code
         );
-    }
+    };
 
-    // Verify that the zip code format looks somewhat sane (SE-123 45)
-    if person.zip_code.chars().nth(6).unwrap() != ' ' || person.zip_code.len() != 9 {
-        bail!(
-            "{}: Jag litar inte på postnumret {}",
-            person.number,
-            person.zip_code
-        );
-    }
-
-    verify_using_ratsit(person)
+    verify_using_ratsit(person, &postal_digits)
 }
 
 pub fn run(filename: impl AsRef<Path>) -> Result<()> {
-    // Just a quick design note here: this could easily have been made to run
-    // in parallel and async, but... We don't really want to strain the
-    // services we use.
+    // This could easily have been made to run in parallel, but we do not
+    // want to strain the services we use.
     let mut people = read_csv(filename)?;
     people.sort_unstable_by_key(|p| p.number);
     let pb = ProgressBar::new(people.len() as u64);
@@ -153,7 +160,7 @@ pub fn run(filename: impl AsRef<Path>) -> Result<()> {
         if let Err(err) = verify(&person) {
             messages.push(err);
         }
-        std::thread::sleep(std::time::Duration::from_secs(6));
+        thread::sleep(Duration::from_secs(6));
     }
     pb.finish();
 
@@ -164,4 +171,18 @@ pub fn run(filename: impl AsRef<Path>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_swedish_postal_codes() {
+        assert_eq!(swedish_postal_digits("SE-123 45").as_deref(), Some("12345"));
+        assert_eq!(swedish_postal_digits("SE-12345"), None);
+        assert_eq!(swedish_postal_digits("SE-12 345"), None);
+        assert_eq!(swedish_postal_digits("123 45"), None);
+        assert_eq!(swedish_postal_digits("NO-123 45"), None);
+    }
 }
