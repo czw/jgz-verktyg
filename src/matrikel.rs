@@ -1,5 +1,7 @@
+use crate::pdf::{self, HtmlToPdf};
 use crate::shared;
 use anyhow::{Context, Result};
+use headless_chrome::types::PrintToPdfOptions;
 use minijinja::context;
 use std::collections::HashMap;
 use std::path::Path;
@@ -52,15 +54,57 @@ fn get_sorted_member_list(filename: impl AsRef<Path>) -> Result<Vec<shared::Pers
     Ok(people)
 }
 
+const PEOPLE_PER_PAGE: usize = 10;
+const WAIT_FOR_IMAGES_JS: &str = r"
+    new Promise((resolve) => {
+        const images = Array.from(document.images);
+        let pending = images.filter((img) => !img.complete).length;
+        if (pending === 0) {
+            resolve(true);
+            return;
+        }
+        const done = () => {
+            pending -= 1;
+            if (pending <= 0) resolve(true);
+        };
+        for (const img of images) {
+            if (img.complete) continue;
+            img.addEventListener('load', done, { once: true });
+            img.addEventListener('error', done, { once: true });
+        }
+        setTimeout(() => resolve(true), 15000);
+    });
+";
+
 pub fn run(filename: impl AsRef<Path>, year: Option<i32>) -> Result<()> {
     let images = get_image_map()?;
     let people = get_sorted_member_list(filename)?;
-    let people_per_page: Vec<&[shared::Person]> = people.chunks(10).collect();
+    let people_per_page: Vec<&[shared::Person]> = people.chunks(PEOPLE_PER_PAGE).collect();
     let year = year.unwrap_or(shared::current_year());
 
     let ctx = context!(images => images, people_per_page => people_per_page, year => year);
-    let tmpl = shared::ENV.get_template("matrikel.tmpl")?;
-    println!("{}", tmpl.render(ctx)?);
+    let html = shared::ENV
+        .get_template("matrikel.tmpl")
+        .context("Kan inte ladda matrikelmallen")?
+        .render(ctx)
+        .context("Rendering av matrikelmallen misslyckades")?;
+
+    let pdf = pdf::html_to_pdf(
+        &html,
+        format!(".matrikel-{year}.html"),
+        HtmlToPdf {
+            evaluate_js: Some(WAIT_FOR_IMAGES_JS),
+            print: PrintToPdfOptions {
+                print_background: Some(true),
+                ..HtmlToPdf::default().print
+            },
+            ..Default::default()
+        },
+    )?;
+
+    let filename = format!("Matrikel {year}.pdf");
+    std::fs::write(&filename, pdf).context("Kunde inte skriva PDF-filen")?;
+    println!("Skapade filen '{filename}'.");
     Ok(())
 }
 

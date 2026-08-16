@@ -57,7 +57,7 @@
             </p>
           </div>
         {% endfor %}
-        <div class="footer">
+        <div class="footer{% if not loop.last %} page-break{% endif %}">
           Sida {{ loop.index }} av {{ loop.length }}
         </div>
       {% endfor %}

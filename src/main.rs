@@ -7,6 +7,7 @@ mod gratulera;
 mod matrikel;
 mod matrikelstatistik;
 mod medlemsavgift;
+mod pdf;
 mod shared;
 
 #[derive(Debug, Parser)]
@@ -33,7 +34,7 @@ enum Commands {
         /// Vilket år som rapporten ska genereras för om ej nuvarande år
         year: Option<i32>,
     },
-    /// Generera en medlemsmatrikel i HTML-format
+    /// Generera en medlemsmatrikel som PDF
     #[command(arg_required_else_help = true)]
     Matrikel {
         /// CSV-fil med aktuella medlemsuppgifter

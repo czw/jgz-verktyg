@@ -1,6 +1,6 @@
+use crate::pdf::{self, HtmlToPdf};
 use crate::shared::{self, MemberFeeLevel, Person};
 use anyhow::{Context, Result};
-use headless_chrome::{Browser, LaunchOptions, types::PrintToPdfOptions};
 use indicatif::{ProgressBar, ProgressStyle};
 use lettre::{
     Address, Message, SmtpTransport, Transport,
@@ -10,7 +10,7 @@ use lettre::{
 use serde::Serialize;
 use std::{
     collections::HashSet,
-    fs::{File, OpenOptions, read_to_string, remove_file, write},
+    fs::{File, OpenOptions, read_to_string},
     io::{self, Write},
     path::Path,
     time::{Duration, Instant},
@@ -19,8 +19,6 @@ use std::{
 const SENT_FILENAME: &str = "invoices_sent_to.txt";
 const NORMAL_YEARLY_FEE: i32 = 350;
 const REDUCED_YEARLY_FEE: i32 = 100;
-const A4_PAPER_WIDTH_INCHES: f64 = 8.27;
-const A4_PAPER_HEIGHT_INCHES: f64 = 11.69;
 const MAIL_BODY: &str = r"Bäste broder!
 
 Det är dags att betala din medlemsavgift i Jämtlands Gille. Vi hoppas att du
@@ -224,29 +222,15 @@ fn generate_pdf(info: &MailingInfo) -> Result<Vec<u8>> {
         .context("Rendering av mallen misslyckades")?;
 
     let html_path = std::env::temp_dir().join(format!("faktura_{}.html", info.number));
-    write(&html_path, &template).context("Kunde inte skriva HTML-filen")?;
-
-    let browser = Browser::new(LaunchOptions::default()).context("Kan inte starta webbläsaren")?;
-    let tab = browser.new_tab().context("Kan inte skapa en ny flik")?;
-    tab.navigate_to(&format!("file://{}", html_path.display()))?;
-    tab.wait_until_navigated()?;
-
-    tab.wait_for_element("#qr-code canvas")
-        .context("QR-koden renderades inte")?;
-    tab.evaluate(WAIT_FOR_LOGO_JS, true)
-        .context("Kunde inte vänta på logotypen")?;
-
-    let pdf = tab.print_to_pdf(Some(PrintToPdfOptions {
-        paper_width: Some(A4_PAPER_WIDTH_INCHES),
-        paper_height: Some(A4_PAPER_HEIGHT_INCHES),
-        prefer_css_page_size: Some(true),
-        ..Default::default()
-    }))?;
-
-    tab.close_with_unload()?;
-    remove_file(&html_path).ok();
-
-    Ok(pdf)
+    pdf::html_to_pdf(
+        &template,
+        html_path,
+        HtmlToPdf {
+            wait_for_selector: Some("#qr-code canvas"),
+            evaluate_js: Some(WAIT_FOR_LOGO_JS),
+            ..Default::default()
+        },
+    )
 }
 
 fn send_invoice(
